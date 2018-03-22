@@ -1,0 +1,113 @@
+:project:
+  :use_exceptions: FALSE
+  :use_test_preprocessor: TRUE
+  :use_auxiliary_dependencies: TRUE
+  :build_root: build
+  :release_build: TRUE
+  :test_file_prefix: test_
+
+:release_build:
+  :output: GccGenD20.elf
+  :use_assembly: FALSE
+
+:environment:
+
+:extension:
+  :executable: .out
+
+:paths:
+  :test:
+    - +:test/**
+  :source:
+    - src/**
+
+:defines:
+  # in order to add common defines:
+  #  1) remove the trailing [] from the :common: section
+  #  2) add entries to the :common: section (e.g. :test: has TEST defined)
+  :commmon: &common_defines []
+  :test:
+    - *common_defines
+    - TEST
+    - __SAMD20J18__
+  :test_preprocess:
+    - *common_defines
+    - TEST
+    - __SAMD20J18__
+
+:cmock:
+  :mock_prefix: mock_
+  :when_no_prototypes: :warn
+  :enforce_strict_ordering: TRUE
+  :plugins:
+    - :ignore
+    - :callback
+  :treat_as:
+    uint8:    HEX8
+    uint16:   HEX16
+    uint32:   UINT32
+    int8:     INT8
+    bool:     UINT8
+
+:tools:
+  :test_compiler:
+    :executable: gcc
+    :arguments:
+      - -m32
+      - -I"$": COLLECTION_PATHS_TEST_SUPPORT_SOURCE_INCLUDE_VENDOR
+      - -std=c99
+      - -D__SAMD20J18__
+      - -DBOARD=USER_BOARD
+      - -DUNITY_SUPPORT_64=1
+      - -DUNITY_INT_WIDTH=32
+      - -DUNITY_LONG_WIDTH=64
+      - -DUNITY_POINTER_WIDTH=32
+      - -DGNU_COMPILER
+      - -DEXTINT_CALLBACKS_MAX=10
+ #     - -fdiagnostics-color=auto
+      - -g
+      - -Os
+      - -c "${1}"
+      - -o "${2}"
+  :test_linker:
+    :executable: gcc
+    :arguments:
+      - -m32
+      - ${1}
+      - -o ${2}
+      - -lm
+  :release_compiler:
+    :executable:
+      arm-none-eabi-gcc
+    :arguments:
+      - -mthumb -D__SAMD20J18__ -DDEBUG -DBOARD=USER_BOARD -DARM_MATH_CM0PLUS=true -DUSART_CALLBACK_MODE=true -DSPI_CALLBACK_MODE=true -DI2C_SLAVE_CALLBACK_MODE=true -DWDT_CALLBACK_MODE=true -DEXTINT_CALLBACK_MODE=true -DSYSTICK_MODE -DI2C_MASTER_CALLBACK_MODE=true -DTC_ASYNC=true -DRTC_CALENDAR_ASYNC=true -DADC_CALLBACK_MODE=true -I"src/ASF/sam0/utils/stdio/stdio_serial" -I"src/ASF/common/boards" -I"src/ASF/sam0/utils" -I"src/ASF/sam0/utils/header_files" -I"src/ASF/sam0/utils/preprocessor" -I"src/ASF/thirdparty/CMSIS/Include" -I"src/ASF/thirdparty/CMSIS/Lib/GCC" -I"src/ASF/common/utils" -I"src/ASF/sam0/utils/cmsis/samd20/include" -I"src/ASF/sam0/utils/cmsis/samd20/source" -I"src/ASF/sam0/drivers/system" -I"src/ASF/sam0/drivers/system/clock/clock_samd20" -I"src/ASF/sam0/drivers/system/clock" -I"src/ASF/sam0/drivers/system/interrupt" -I"src/ASF/sam0/drivers/system/interrupt/system_interrupt_samd20" -I"src/ASF/sam0/drivers/system/pinmux" -I"src/ASF/sam0/drivers/system/power" -I"src/ASF/sam0/drivers/system/power/power_sam_d_r_h" -I"src/ASF/sam0/drivers/system/reset" -I"src/ASF/sam0/drivers/system/reset/reset_sam_d_r_h" -I"src/ASF/common2/boards/user_board" -I"src" -I"src/config" -I"src/ASF/sam0/drivers/port" -I"src/ASF/sam0/drivers/sercom" -I"src/ASF/sam0/drivers/sercom/usart" -I"src/ASF/sam0/drivers/sercom/spi" -I"src/ASF/sam0/drivers/sercom/i2c" -I"src/ASF/sam0/drivers/sercom/i2c/i2c_samd20" -I"src/ASF/sam0/drivers/wdt" -I"src/ASF/sam0/drivers/extint" -I"src/ASF/sam0/drivers/extint/extint_sam_d_r_h" -I"src/ASF/common2/services/delay" -I"src/ASF/common2/services/delay/sam0" -I"src/ASF/sam0/drivers/tc" -I"src/ASF/sam0/drivers/tc/tc_sam_d_r_h" -I"src/ASF/sam0/drivers/rtc" -I"src/ASF/sam0/drivers/rtc/rtc_sam_d_r_h" -I"src/ASF/common2/components/memory/sd_mmc" -I"src/ASF/sam0/drivers/adc" -I"src/ASF/sam0/drivers/adc/adc_sam_d_r_h" -I"/src/ASF/common2/components/memory/serial_flash/at25dfx" -I"src/ASF/common2/components/memory/serial_flash/at25dfx/hal/spi_polled" -I"/src/ASF/sam0/services/eeprom/emulator/main_array" -I"/src/ASF/sam0/drivers/nvm" -I"/src/ASF/sam0/services/eeprom/emulator/main_array" -I"/src/ASF/sam0/drivers/nvm"  -O1 -fdata-sections -ffunction-sections -mlong-calls -g3 -Wall -mcpu=cortex-m0plus -c -pipe -fno-strict-aliasing -Wall -Wstrict-prototypes -Wmissing-prototypes -Werror-implicit-function-declaration -Wpointer-arith -std=gnu99 -ffunction-sections -fdata-sections -Wchar-subscripts -Wcomment -Wformat=2 -Wimplicit-int -Wmain -Wparentheses -Wsequence-point -Wreturn-type -Wswitch -Wtrigraphs -Wunused -Wuninitialized -Wunknown-pragmas -Wfloat-equal -Wundef -Wshadow -Wbad-function-cast -Wwrite-strings -Wsign-compare -Wmissing-declarations -Wformat -Wmissing-format-attribute -Wno-deprecated-declarations -Wpacked -Wredundant-decls -Wnested-externs -Wlong-long -Wunreachable-code -Wcast-align --param max-inline-insns-single=500                       
+      - -I"$": COLLECTION_PATHS_SOURCE
+      - -c ${1}
+      - -o ${2}
+      - -Wno-long-long # Allow llu constants
+      - -DNDEBUG       # Disable runtime assert()
+#      - -fdiagnostics-color=auto
+
+  :release_linker:
+    :executable:
+        arm-none-eabi-gcc
+    :arguments:
+      - ${1}
+      - -mthumb -Wl,--start-group -larm_cortexM0l_math --specs=nano.specs -lm  -Wl,--end-group -Lcmsis/linkerScripts -Lsrc/ASF/thirdparty/CMSIS/Lib/GCC -Wl,--gc-sections -mcpu=cortex-m0plus -Wl,--entry=Reset_Handler -Wl,--cref -mthumb -Tsrc/ASF/sam0/utils/linker_scripts/samd20/gcc/samd20g18_flash.ld
+      - -o ${2}
+      - -Wl,-Map=${3}
+      # This tells the linker to start executing firmware application code at an address the bootloader needs it to be
+      # Comment this out to use without a bootloader   
+      #- -Wl,--section-start=.text=0x9100
+
+# Ceedling defaults to using gcc for compiling, linking, etc.
+# As [:tools] is blank, gcc will be used (so long as it's in your system path)
+# See documentation to configure a given toolchain for use
+
+:plugins:
+  :load_paths:
+    - vendor/ceedling/plugins
+  :enabled:
+    - stdout_pretty_tests_report
+    - module_generator
+...
