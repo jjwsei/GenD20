@@ -1,19 +1,17 @@
 #include <asf.h>
 #include "usart_driver.h"
+#include "time_util.h"
+#include "circular_buffer.h"
 
-#define MAX_RX_BUFFER_LENGTH   	10
-#define MAX_BUFFER_LENGTH	255
-#define DATA_LENGTH 		8
+CIRCBUF_DEF(rxDataBuf, 128);
+CIRCBUF_DEF(txDataBuf, 128);
+
+uint16_t rx_timeout = 0;
+bool rxRecvFlag = 0;
+uint8_t receivedByte = 0;
 
 struct usart_module usart_instance;
-
-bool data_ready_flag = 0;
-volatile uint8_t rx_buffer[MAX_RX_BUFFER_LENGTH];
-uint8_t serial_state = IDLE;
-uint16_t data_length = 0;
-uint8_t index_count = 0;
-uint8_t message[100] = {0};
-uint8_t length_byte = 1;
+bool waiting_for_ack = 0;
 
 volatile bool write_buffer_locked_flag = false;
 bool write_buffer_locked(void);
@@ -35,6 +33,15 @@ void configure_usart(void)
 	while (usart_init(&usart_instance,
 			SERCOM4, &config_usart) != STATUS_OK) {
 	}
+   
+    // these lines were required in order to get the receive on charcter
+    // interrupt to fire without needing to repeatedly call the built-in
+    // receive job function
+	SercomUsart *const usart_hw = &(usart_instance.hw->USART);
+	usart_hw->INTENSET.reg = SERCOM_USART_INTFLAG_RXC;
+	usart_instance.remaining_rx_buffer_length = 1;
+	usart_instance.rx_buffer_ptr              = &receivedByte;
+	usart_instance.rx_status                  = STATUS_BUSY;
 
 	usart_enable(&usart_instance);
 }
@@ -52,73 +59,70 @@ void configure_usart_callbacks(void)
 
 void usart_read_callback(struct usart_module *const usart_module)
 {
-        data_ready_flag = 1;
+     //save the character to the buffer
+     circular_buf_put(&rxDataBuf, receivedByte);
+     // reset timeout timer
+     rx_timeout = get_time_ms();
+     // indicate that we have received at least one character
+     rxRecvFlag = 1; 
+     // reset interrupt for next character
+	 SercomUsart *const usart_hw = &(usart_module->hw->USART);
+	 usart_hw->INTENSET.reg = SERCOM_USART_INTFLAG_RXC;
+	 usart_module->remaining_rx_buffer_length = 1;
+	 usart_module->rx_buffer_ptr              = &receivedByte;
+	 usart_module->rx_status                  = STATUS_BUSY;
+}
+
+/******************************************************************
+* This function should be called at a rate a few milliseconds longer 
+* than the time it will take to send the longest transmission. For
+* example if the longest transmission that you expect to receive is 
+* 50 bytes then this function should be called at a rate no less than 
+* (((1/baudrate) * bits/byte * 50 + .004) seconds.
+******************************************************************/
+bool USART_dataReady(void)
+{
+    if(rxRecvFlag == 1)
+    {
+    	if(time_since_ms(get_time_ms(), rx_timeout) > USART_BYTE_TIMEOUT)
+		{
+			rxRecvFlag = 0;     
+  			return 1;
+		}
+	}
+    return 0;
+}
+
+void USART_getRecvData(uint8_t *buffer)
+{
+    uint8_t index = 0;
+    int8_t result = 0;
+
+    result = circular_buf_get(&rxDataBuf, &buffer[index]);
+    while(result == 0)
+        result = circular_buf_get(&rxDataBuf, &buffer[++index]);
 }
 
 void usart_write_callback(struct usart_module *const usart_module)
 {
-
+   // see if there is data still in the ring buffer
+   // if so, send the data 
 }
-
-int read_usart_data(uint8_t *buffer)
-{
-        int result = -1;
-
-	usart_read_job(&usart_instance, (uint8_t *)rx_buffer);
-        if(data_ready_flag == 1)
-        {
-           data_ready_flag = 0;
-           switch(serial_state)
-           {
-              case IDLE:
-                 if(rx_buffer[0] == 0x00)
-                   serial_state = GOT_ZERO;
-                 break;
-              case GOT_ZERO:
-                 if(rx_buffer[0] == 0xAA)
-                   serial_state = GOT_AA;
-                   data_length = 0;
-                 break;
-              case GOT_AA:
-                 if(length_byte == 1) 
-                 {
-                    ++length_byte;
-                    data_length = rx_buffer[0] << 8;
-                 }
-                 else
-                 {
-                    length_byte = 1;
-                    data_length |= rx_buffer[0];
-                    index_count = 0;
-                    serial_state = GOT_LENGTH;
-                 }
-                 break;
-              case GOT_LENGTH:
-                 buffer[index_count] =  rx_buffer[0];
-                 if(index_count == data_length)
-                 {
-                   result = 0;
-                   serial_state = IDLE;
-                 }
-                 else
-                   ++index_count;
-                 break;
-              default:
-                 break;
-           }
-        } 
-        return result;  
-}  
 
 int write_usart_data(uint8_t *buffer, uint8_t length)
 {
    int result = -1;
  
    usart_write_buffer_job(&usart_instance, buffer, length);
+   waiting_for_ack = 1;
    return result;
 }
 
- 
+bool USART_receivedAck(void)
+{
+   return waiting_for_ack;
+}
+
 int updateUsartTxqueue(uint8_t *data, uint8_t length)
 {
    int result = -1;
