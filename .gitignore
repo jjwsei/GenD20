@@ -1,0 +1,45 @@
+# Object files
+*.o
+*.ko
+*.obj
+*.elf
+*.bin
+
+# Precompiled Headers
+*.gch
+*.pch
+
+# Shared objects (inc. Windows DLLs)
+*.dll
+*.so
+*.so.*
+*.dylib
+
+# Executables
+*.exe
+*.out
+*.app
+*.i*86
+*.x86_64
+*.hex
+
+# Vim crap
+*.sw*
+*~
+
+# ctags file
+tags
+
+# Log files
+*.log
+
+build/
+
+# XCode Files
+*.xcodeproj
+
+# Uncrustify
+*uncrustify*
+
+# GDB
+.gdb_history
